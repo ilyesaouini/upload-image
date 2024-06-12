@@ -10,24 +10,61 @@ export class ImagesService {
         return new StreamableFile(image);
     }
 
-    async uploadImage(image: Express.Multer.File) {
-        const allowedTypes = ["image/jpeg", "image/png", "image/gif"];
-        if(!allowedTypes.includes(image.mimetype)) {
-            throw new BadRequestException(
-                "Les images téléchargés doivent être au format JPEG, PNG ou GIF ",
-            );
+    async uploadImage(file: Express.Multer.File): Promise<string> {
+
+        const allowedTypes = ['jpeg', 'jpg', 'png', 'gif'];
+
+        if (!allowedTypes.includes(extname(file.originalname).substring(1))) {
+
+            throw new BadRequestException('Les images téléchargées doivent être au format JPEG, PNG ou GIF.');
+
         }
 
-        const maxSize = 10 * 1024 *1024; //10MO
-        if (image.size > maxSize) {
-            throw new BadRequestException("La taille de l'image ne doit pas dépasser 10 Mo.");
-        }
-        console.log(image.filename);
-        let filename = image.filename + extname(image.originalname);
-        console.log(image.path)
-        const destinationPath = join(".uploads/", filename);
+        // Vérifier la taille du fichier
 
-      
-        return filename;
+        const maxSize = 10 * 1024 * 1024; // 10 Mo
+
+        if (file.size > maxSize) {
+
+            throw new BadRequestException('La taille de l\'image ne doit pas dépasser 10 Mo.');
+
+        }
+
+        let fileName = file.filename + extname(file.originalname)
+
+        const destinationPath = join('./uploads/', fileName);
+
+       const readStream = createReadStream(file.path );
+
+        const writeStream = createWriteStream(destinationPath);
+
+        // Copier le fichier
+
+        await new Promise((resolve, reject) => {
+
+            readStream.pipe(writeStream);
+
+            readStream.on('error', reject);
+
+            writeStream.on('error', reject);
+
+            writeStream.on('finish', resolve);
+
+        });
+
+        //Supprimer le fichier temporaire
+
+        unlink(file.path, (err) => {
+
+            if (err) {
+
+                console.error('Erreur lors de la suppression du fichier temporaire :', err);
+
+            }
+
+        });
+
+        return fileName;
+
     }
 }
